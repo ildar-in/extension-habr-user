@@ -1,0 +1,36 @@
+{
+    "alias": "Dominux",
+    "fullname": null,
+    "avatarUrl": null,
+    "speciality": null,
+    "gender": "0",
+    "rating": 0.1,
+    "ratingPos": 2152,
+    "scoreStats": {
+      "score": -3,
+      "votesCount": 5
+    },
+    "relatedData": {
+      "vote": {
+        "value": null
+      },
+      "canVote": true,
+      "isSubscribed": false
+    },
+    "followStats": {
+      "followCount": 0,
+      "followersCount": 0
+    },
+    "lastActivityDateTime": "2023-07-26T09:26:51+00:00",
+    "registerDateTime": "2018-03-19T14:43:52+00:00",
+    "birthday": null,
+    "location": null,
+    "workplace": [],
+    "counterStats": {
+      "postCount": 0,
+      "commentCount": 25,
+      "favoriteCount": 1
+    },
+    "isReadonly": false,
+    "canBeInvited": true
+  }
