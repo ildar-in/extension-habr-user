@@ -18,6 +18,16 @@ function showVotes(){
     document.body.querySelectorAll(muted).forEach(/** @param {HTMLElement} s*/ s=>{
         s.style.opacity = 0.4
     })
+}
+function hideStats(){
+    state.profileElems.forEach(p=>{
+        p.profileElemContainer.style.display= 'none';
+    })
+}
+function showStats(){
+    state.profileElems.forEach(p=>{
+        p.profileElemContainer.style.display= '';
+    })
     const userBlocks = new Map()
     document.body.querySelectorAll('.tm-user-info__username').forEach(/** @param {HTMLAnchorElement} s*/ s=>{
         const processed = state.profileElemsProcessed.get(s)
@@ -56,6 +66,7 @@ function showVotes(){
         const blocks = userBlocks.get(username)
         blocks.forEach(/** @param {HTMLAnchorElement} s */ s=>{
             const profileStat = createProfieStat(s, username)
+            state.profileElems.push(profileStat)
             const onLoad=(data)=>{
                 updateBadge(profileStat, data, createLevelInfo(data))
             }
@@ -74,7 +85,8 @@ function createState(){
         hide:false,
         profiles:new Map(),
         profileElemsProcessed:new Map(),
-        rarityImages:[]
+        rarityImages:[],
+        profileElems:[],
     }
 }
 function getElapsed(date = new Date()){
@@ -145,6 +157,7 @@ function createLevelInfo(data=createData()){
     return levelInfo
 }
 function createProfieStat(s, username){
+    const profileElemContainer = document.createElement('span')
     const profileElem = document.createElement('span')
     profileElem.textContent = username
     profileElem.style.fontSize='.8125rem'
@@ -152,9 +165,11 @@ function createProfieStat(s, username){
     profileIcon.style.height='.8125rem'
     profileIcon.style.marginLeft='3px'
     profileIcon.src=state.rarityImages[0]
-    s.parentElement.appendChild(profileIcon)
-    s.parentElement.appendChild(profileElem)
+    s.parentElement.appendChild(profileElemContainer)
+    profileElemContainer.appendChild(profileIcon)
+    profileElemContainer.appendChild(profileElem)
     return{
+        profileElemContainer,
         profileElem,
         profileIcon
     }
@@ -224,13 +239,6 @@ function normalizeGeom(value=0,min=-20,max=300){
     const geom = Math.sqrt(norm)
     return geom
 }
-function process(){
-    if(state.hide){
-        hideVotes()
-    }else{
-        showVotes()
-    }
-}
 function animate() {
     requestAnimationFrame(animate)
     process()
@@ -292,17 +300,63 @@ function createRarityIcons(maxLevel = 9){
     state.rarityImages=images
     return images
 }
+function process(){
+    if(saved.isHide){
+        hideVotes()
+    }else{
+        showVotes()
+    }
+    if(saved.showStats){
+        showStats()
+    }else{
+        hideStats()
+    }
+}
 function init(){
 }
 //---
 const state = createState()
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log(message)
-    state.hide = message.hide
-    return true
-})
+let  saved = createSaved()
+function onMessage({message, sender, sendResponse}){
+    if(message.isInit){
+        message.isInit=false
+        message.saved=saved
+        sendResponse(message)
+    }else{
+        saved=message.saved
+    }
+}
 window.addEventListener('load', e=>{
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if(message.isInit){
+            const messageResponse = Object.assign({},message)
+            messageResponse.saved=saved
+            messageResponse.isInit=false
+            sendResponse(messageResponse)
+        }else{
+            saved=message.saved
+            localStorage.setItem('saved', JSON.stringify(message.saved))
+        }
+    })
     createRarityIcons()
     process()
     animate()
 })
+//--- boilerplate
+function createMessage(message={isInit:true, saved:createSaved()}){
+    return message
+}
+function createSaved(savedData = {
+    isHide:false,
+    showStats:false,
+}){
+    const savedFromLocal = localStorage.getItem('saved')
+    const savedObj = JSON.parse(savedFromLocal)
+    if(savedFromLocal!==undefined){
+        Object.assign(savedData, savedObj)
+    }
+    return savedData
+}
+function sendMessage(message){
+    chrome.runtime.sendMessage(null, message, null)
+}
