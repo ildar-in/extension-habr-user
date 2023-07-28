@@ -1,4 +1,5 @@
 function hideVotes(){
+    //tm-votes-meter__value tm-votes-meter__value tm-votes-meter__value_positive tm-votes-meter__value_appearance-article tm-votes-meter__value_rating
     const rate = '.tm-votes-lever__score-counter.tm-votes-lever__score-counter,.tm-votes-meter__value.tm-votes-meter__value_appearance-comment'
     document.body.querySelectorAll(rate).forEach(/** @param {HTMLElement} s */ s=>{
         s.hidden=true
@@ -7,13 +8,6 @@ function hideVotes(){
     document.body.querySelectorAll(muted).forEach(/** @param {HTMLElement} s*/ s=>{
         s.style.opacity = 1
     })
-}
-function createState(){
-    return {
-        hide:false,
-        profiles:new Map(),
-        profileElemsProcessed:new Map(),
-    }
 }
 function showVotes(){
     const rate = '.tm-votes-lever__score-counter.tm-votes-lever__score-counter,.tm-votes-meter__value.tm-votes-meter__value_appearance-comment'
@@ -61,12 +55,9 @@ function showVotes(){
         /** @type {Array<HTMLSpanElement>} */
         const blocks = userBlocks.get(username)
         blocks.forEach(/** @param {HTMLAnchorElement} s */ s=>{
-            const profileElem = document.createElement('span')
-            profileElem.textContent = username
-            profileElem.style.fontSize='.8125rem'
-            s.parentElement.appendChild(profileElem)
+            const profileStat = createProfieStat(s, username)
             const onLoad=(data)=>{
-                updateBadge(profileElem, data, createLevelInfo(data))
+                updateBadge(profileStat, data, createLevelInfo(data))
             }
             if(profileLoad.data===null){
                 profileLoad.callbacks.push((data)=>{
@@ -77,6 +68,111 @@ function showVotes(){
             }
         })
     }
+}
+function createState(){
+    return {
+        hide:false,
+        profiles:new Map(),
+        profileElemsProcessed:new Map(),
+        rarityImages:[]
+    }
+}
+function getElapsed(date = new Date()){
+    const elapsed = (new Date()- date)
+    const hours = Math.ceil(elapsed/(1000*60*60))
+    let elapsedString=hours+'h'
+    let days=0
+    let monthes=0
+    if(hours>24){
+         days = Math.ceil(hours/(24))
+        elapsedString=days+'d'
+        if(days>356){
+            monthes = Math.ceil(days/(30.436875))
+            elapsedString=monthes+'m'
+        }
+    }
+    return {
+        elapsed,
+        hours,
+        days, 
+        monthes,
+        elapsedString,
+    }
+}
+function dateToElapsedString(date = new Date()){
+    const elapsed = getElapsed(date)
+    return elapsed.elapsedString
+}
+function createLevelInfo(data=createData()){
+    let level=0
+    const scoreGab =  data.counterStats.commentCount>0?(data.counterStats.postCount/data.counterStats.commentCount):1
+    const scoreNorm = normalize(data.scoreStats.score, 0, 50)
+    const scoreRateNorm = ((data.scoreStats.votesCount-data.scoreStats.score)/2+data.scoreStats.score)/data.scoreStats.votesCount
+    const lastDate = Date.parse(data.lastActivityDateTime)
+    const elapsedLast = dateToElapsedString(lastDate)
+    const registerDate = Date.parse(data.registerDateTime)
+    const elapsedRegister = dateToElapsedString(registerDate)
+    if(data.counterStats.postCount===0){
+        if(data.scoreStats.score<=0){
+            level=0
+        }else {
+            level=1
+        }
+    }else{
+        if(data.scoreStats.score<0){
+            level=2
+        }else{
+            if(scoreGab<0.05){
+                level=3
+            }else{
+                const elapsed = getElapsed(registerDate)
+                if(elapsed.monthes<120) {
+                    level=4
+                }else{
+                    level=5
+                }
+            }
+        }
+    }
+    const levelInfo = {
+        level,
+        scoreNorm,
+        scoreRateNorm,
+        scoreGab,
+        elapsedLast,
+        elapsedRegister,
+    }
+    return levelInfo
+}
+function createProfieStat(s, username){
+    const profileElem = document.createElement('span')
+    profileElem.textContent = username
+    profileElem.style.fontSize='.8125rem'
+    const profileIcon = document.createElement('img')
+    profileIcon.style.height='.8125rem'
+    profileIcon.style.marginLeft='3px'
+    profileIcon.src=state.rarityImages[0]
+    s.parentElement.appendChild(profileIcon)
+    s.parentElement.appendChild(profileElem)
+    return{
+        profileElem,
+        profileIcon
+    }
+}
+/** @param {HTMLAnchorElement} span */
+function updateBadge(profileStat = createProfieStat(), data=createData(), levelInfo=createLevelInfo()){
+    const sign = data.scoreStats.score>0?'+':''
+    profileStat.profileIcon.src=state.rarityImages[levelInfo.level]
+    profileStat.profileElem.textContent = ''
+        + '| P'+data.counterStats.postCount+ ' '
+        + '| G'+(Math.ceil(levelInfo.scoreGab*100))+'% '
+        + '| X'+(Math.ceil(levelInfo.scoreRateNorm*100))+'% '
+        + '| '+sign + data.scoreStats.score+'('+data.scoreStats.votesCount+') '
+        +' | C'+data.counterStats.commentCount+' '
+        + '| F'+data.followStats.followersCount+' '
+        + '| L'+ levelInfo.elapsedLast+' '
+        + '| R'+ levelInfo.elapsedRegister+' '
+        + '| V'+levelInfo.level+' '
 }
 function createData(){
 return {
@@ -128,61 +224,6 @@ function normalizeGeom(value=0,min=-20,max=300){
     const geom = Math.sqrt(norm)
     return geom
 }
-function createLevelInfo(data=createData()){
-    const levelInfo = {
-        level:0,
-        scoreNorm:0,
-        scoreRateNorm:0,
-    }
-    if( data.counterStats.postCount===0){
-        if(data.scoreStats.score<=0){
-            levelInfo.level=0
-        }
-        if(data.scoreStats.score>0){
-            levelInfo.level=1
-        }
-    }else{
-        //const 
-        if(data.scoreStats.score<0){
-            levelInfo.level=3
-        }
-        if(data.scoreStats.score<0){
-            levelInfo.level=3
-        }
-    }
-    const maxScore = 50
-    const minScore = 0
-    const scoreNorm = normalize(data.scoreStats.score, minScore, maxScore)
-    const scoreRateNorm = ((data.scoreStats.votesCount-data.scoreStats.score)/2+data.scoreStats.score)/data.scoreStats.votesCount
-    levelInfo.scoreNorm=scoreNorm
-    levelInfo.scoreRateNorm=scoreRateNorm
-    return levelInfo
-}
-/** @param {HTMLAnchorElement} span */
-function updateBadge(span, data=createData(), levelInfo=createLevelInfo()){
-    const sign = data.scoreStats.score>0?'+':''
-    span.textContent = ''
-        + '| P'+data.counterStats.postCount+ ' '
-        + '| X'+(Math.ceil(levelInfo.scoreRateNorm*100))+'% '
-        + '| '+sign + data.scoreStats.score+'('+data.scoreStats.votesCount+') '
-        +' | C'+data.counterStats.commentCount+' '
-        + '| F'+data.followStats.followersCount+' '
-        + '| L'+ dateToString(Date.parse(data.lastActivityDateTime))+' '
-        + '| R'+dateToString(Date.parse(data.registerDateTime))+' '
-  }
-function dateToString(date=new Date()){
-    const elapsed =  (new Date()- date)
-    const hours = Math.ceil(elapsed/(1000*60*60))
-    if(hours>24){
-        const days = Math.ceil(hours/(24))
-        if(days>356){
-            const monthes = Math.ceil(days/(30.436875))
-            return monthes+'m'
-        }
-        return days+'d'
-    }
-    return hours+'h'
-}
 function process(){
     if(state.hide){
         hideVotes()
@@ -194,13 +235,8 @@ function animate() {
     requestAnimationFrame(animate)
     process()
 }
-document.addEventListener('readystatechange',e=>{
-    animate()
-})
-window.addEventListener('load', e=>{
-    process()
-})
 function createRarity(level=0){
+    //Common-Uncommon-Rare-Epic-Legendary-Mystic-Relic-Masterwork-Ethernal
     const names = [
         'common',
         'uncommon',
@@ -223,7 +259,6 @@ function createRarity(level=0){
         '#ff0080',
         '#000000',
     ]
-
     return {
         names,
         colors,
@@ -231,10 +266,43 @@ function createRarity(level=0){
         color:colors[level]
     }
 }
+function createRarityIcons(maxLevel = 9){
+    let images = []
+    const width = 32
+    const icoWidth = 5
+    for(let i=0;i<maxLevel;i++){
+        const canvas = document.createElement('canvas')
+        canvas.width=32
+        canvas.height=32
+        const ctx = canvas.getContext('2d')
+        const rarity = createRarity(i)
+        ctx.beginPath()
+        ctx.moveTo(16,0)
+        ctx.lineTo(32-icoWidth,13)
+        ctx.lineTo(32-icoWidth,19)
+        ctx.lineTo(16,32)
+        ctx.lineTo(icoWidth,19)
+        ctx.lineTo(icoWidth,13)
+        ctx.closePath()
+        ctx.fillStyle=rarity.color
+        ctx.fill()
+        const image = canvas.toDataURL()
+        images.push(image)
+    }
+    state.rarityImages=images
+    return images
+}
+function init(){
+}
 //---
 const state = createState()
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log(message)
     state.hide = message.hide
     return true
+})
+window.addEventListener('load', e=>{
+    createRarityIcons()
+    process()
+    animate()
 })
